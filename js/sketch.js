@@ -19,11 +19,13 @@ const disk = {
   none: 0,
   dark: 1,
   light: 2,
+  hint: 3,
 };
 
-const diskColor = [[], [0, 0, 0], [255, 255, 255]];
+const diskColor = [[], [0, 0, 0], [255, 255, 255], [255, 255, 0]];
 
 let board = [];
+let hintBoard = [];
 let turn;
 
 function setup() {
@@ -31,6 +33,13 @@ function setup() {
     board[x] = [];
     for (let y = 0; y < pixelNum.y; y++) {
       board[x][y] = 0;
+    }
+  }
+
+  for (let x = 0; x < pixelNum.x; x++) {
+    hintBoard[x] = [];
+    for (let y = 0; y < pixelNum.y; y++) {
+      hintBoard[x][y] = 0;
     }
   }
 
@@ -46,6 +55,7 @@ function setup() {
 
 function draw() {
   createBoard();
+  hintDisk(turn);
   putDisk();
 }
 
@@ -53,7 +63,7 @@ function createBoard() {
   for (let x = 0; x < pixelNum.x; x++) {
     for (let y = 0; y < pixelNum.y; y++) {
       fill(boardColor);
-      rect(x * pixelSize.x, y * pixelSize.x, pixelSize.x, pixelSize.y);
+      rect(x * pixelSize.x, y * pixelSize.y, pixelSize.x, pixelSize.y);
     }
   }
 }
@@ -61,13 +71,24 @@ function createBoard() {
 function putDisk() {
   for (let x = 0; x < pixelNum.x; x++) {
     for (let y = 0; y < pixelNum.y; y++) {
+      if (hintBoard[x][y] === disk.hint) {
+        erase(100, 255);
+        ellipse(
+          x * pixelSize.x + pixelSize.x / 2,
+          y * pixelSize.y + pixelSize.y / 2,
+          diskSize.x,
+          diskSize.y
+        );
+        noErase();
+      }
+
       if (board[x][y] === disk.none) {
         continue;
       } else {
         fill(diskColor[board[x][y]]);
         ellipse(
           x * pixelSize.x + pixelSize.x / 2,
-          y * pixelSize.y + pixelSize.x / 2,
+          y * pixelSize.y + pixelSize.y / 2,
           diskSize.x,
           diskSize.y
         );
@@ -77,22 +98,23 @@ function putDisk() {
 }
 
 function mouseReleased() {
-  let checkingPos = new Vec(
-    int(mouseX / pixelSize.x),
-    int(mouseY / pixelSize.y)
-  );
+  let clickPos = new Vec(int(mouseX / pixelSize.x), int(mouseY / pixelSize.y));
 
-  if (!isInBoard(checkingPos)) {
+  if (!isInBoard(clickPos)) {
     return false;
   }
 
-  if (!isNoneDisk(checkingPos)) {
+  if (!isNoneDisk(clickPos)) {
     return false;
   }
 
-  board[checkingPos.x][checkingPos.y] = turn;
-  putDisk();
-  takeTurn();
+  if (isAbleToPlace(clickPos, turn, true)) {
+    board[clickPos.x][clickPos.y] = turn;
+    takeTurn();
+    redraw();
+    return true;
+  }
+  return false;
 }
 
 function takeTurn() {
@@ -115,4 +137,91 @@ function isNoneDisk(v) {
     return true;
   }
   return false;
+}
+
+function isMyDisk(v, color) {
+  if (board[v.x][v.y] === color) {
+    return true;
+  }
+  return false;
+}
+
+function isAbleToPlace(v, color, reverse) {
+  let result = false;
+  for (let x = -1; x <= 1; x++) {
+    for (let y = -1; y <= 1; y++) {
+      let dir = new Vec(x, y);
+      let pos = new Vec(v.x + dir.x, v.y + dir.y);
+      if (dir.x === 0 && dir.y === 0) {
+        continue;
+      }
+
+      if (!isInBoard(pos)) {
+        continue;
+      }
+
+      if (isNoneDisk(pos)) {
+        continue;
+      }
+
+      if (isMyDisk(pos, color)) {
+        continue;
+      }
+
+      while (true) {
+        pos.x += dir.x;
+        pos.y += dir.y;
+
+        if (!isInBoard(pos)) {
+          break;
+        }
+
+        if (isNoneDisk(pos)) {
+          break;
+        }
+
+        if (isMyDisk(pos, color)) {
+          result = true;
+          if (reverse) {
+            let reversePos = new Vec(v.x, v.y);
+            // setTimeout(function () {
+            while (true) {
+              reversePos.x += dir.x;
+              reversePos.y += dir.y;
+              if (reversePos.x === pos.x && reversePos.y === pos.y) {
+                break;
+              }
+              board[reversePos.x][reversePos.y] = color;
+              fill(diskColor[board[reversePos.x][reversePos.y]]);
+              ellipse(
+                reversePos.x * pixelSize.x + pixelSize.x / 2,
+                reversePos.y * pixelSize.y + pixelSize.y / 2,
+                diskSize.x,
+                diskSize.y
+              );
+            }
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+
+function hintDisk(color) {
+  for (let x = 0; x < pixelNum.x; x++) {
+    for (let y = 0; y < pixelNum.y; y++) {
+      let pos = new Vec(x, y);
+      hintBoard[pos.x][pos.y] = 0;
+    }
+  }
+
+  for (let x = 0; x < pixelNum.x; x++) {
+    for (let y = 0; y < pixelNum.y; y++) {
+      let pos = new Vec(x, y);
+      if (isAbleToPlace(pos, color, false)) {
+        hintBoard[pos.x][pos.y] = disk.hint;
+      }
+    }
+  }
 }
