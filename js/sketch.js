@@ -6,13 +6,13 @@ class Vec {
 }
 
 const pixelNum = new Vec(8, 8);
-const pixelSize = new Vec(100, 100);
-const boardSize = new Vec(pixelNum.x * pixelSize.x, pixelNum.y * pixelSize.y);
 const ratioOfDisk = new Vec(0.8, 0.8);
-const diskSize = new Vec(
-  pixelSize.x * ratioOfDisk.x,
-  pixelSize.y * ratioOfDisk.y
-);
+
+let size;
+let boardSize;
+let pixelSize;
+let diskSize;
+
 const boardColor = [10, 150, 100];
 
 const disk = {
@@ -50,7 +50,8 @@ function setup() {
 
   turn = disk.dark;
 
-  createCanvas(boardSize.x, boardSize.y);
+  windowResized();
+  createCanvas(windowWidth, windowHeight);
 }
 
 function draw() {
@@ -115,6 +116,17 @@ function mouseReleased() {
     return true;
   }
   return false;
+}
+
+function windowResized() {
+  size =
+    window.innerWidth < window.innerHeight
+      ? window.innerWidth
+      : window.innerHeight;
+  boardSize = new Vec(size, size);
+  pixelSize = new Vec(parseInt(size / pixelNum.x), parseInt(size / pixelNum.y));
+  diskSize = new Vec(pixelSize.x * ratioOfDisk.x, pixelSize.y * ratioOfDisk.y);
+  resizeCanvas(windowWidth, windowHeight);
 }
 
 function takeTurn() {
