@@ -12,6 +12,8 @@ let size;
 let boardSize;
 let pixelSize;
 let diskSize;
+let discCount;
+let messageBoardStart;
 
 const boardColor = [10, 150, 100];
 
@@ -24,9 +26,16 @@ const disk = {
 
 const diskColor = [[], [0, 0, 0], [255, 255, 255], [255, 255, 0]];
 
+const diskName = ["NONE", "BLACK", "WHITE", "HINT"];
+
+let numberOfDisks = [0, 0, 0, 0];
+
 let board = [];
 let hintBoard = [];
 let turn;
+
+const urlParams = new URLSearchParams(window.location.search);
+const hint = urlParams.has("hint") ? urlParams.get("hint") === "true" : false;
 
 function setup() {
   for (let x = 0; x < pixelNum.x; x++) {
@@ -55,9 +64,32 @@ function setup() {
 }
 
 function draw() {
+  frameRate(0);
   createBoard();
-  hintDisk(turn);
   putDisk();
+
+  let message = "";
+
+  if (!isAbleToPlaceAll(turn)) {
+    message = "Skip " + diskName[turn];
+    if (turn === disk.dark) {
+      turn = disk.light;
+    } else {
+      turn = disk.dark;
+    }
+    message += "\nNext " + diskName[turn];
+  }
+
+  if (hint) {
+    hintDisk(turn);
+    putHintDisk(turn);
+  }
+
+  if (isGameEnd()) {
+    message = "Game End";
+  }
+
+  createMessageBoard(turn, message);
 }
 
 function createBoard() {
@@ -69,20 +101,89 @@ function createBoard() {
   }
 }
 
+function createMessageBoard(color, message) {
+  fill(boardColor);
+  rect(messageBoardStart.x, messageBoardStart.y, windowWidth, windowHeight);
+  countDisks(color);
+  textAlign(LEFT, TOP);
+  fill("black");
+  let fontSize = int(pixelSize.x / 6);
+  textSize(fontSize);
+
+  for (let i = 0; i < 3; i++) {
+    text(
+      diskName[i] + ": " + numberOfDisks[i],
+      messageBoardStart.x + fontSize * 2,
+      messageBoardStart.y + fontSize / 2 + fontSize * i
+    );
+
+    if (color === i) {
+      fill(diskColor[color]);
+      ellipse(
+        messageBoardStart.x + fontSize,
+        messageBoardStart.y + fontSize + fontSize * i,
+        fontSize * 0.8,
+        fontSize * 0.8
+      );
+    }
+  }
+
+  if (message) {
+    textAlign(CENTER, CENTER);
+    fill(0, 0, 0);
+
+    fontSize = int(pixelSize.x / 3);
+    textStyle(BOLD);
+    textSize(fontSize);
+    text(
+      message,
+      messageBoardStart.x + (windowWidth - messageBoardStart.x) / 2,
+      messageBoardStart.y + (windowHeight - messageBoardStart.y) / 2
+    );
+  }
+}
+
+function countDisks(color) {
+  numberOfDisks = [0, 0, 0, 0];
+  for (let x = 0; x < pixelNum.x; x++) {
+    for (let y = 0; y < pixelNum.y; y++) {
+      numberOfDisks[board[x][y]]++;
+    }
+  }
+}
+
+function putHintDisk(color) {
+  for (let x = 0; x < pixelNum.x; x++) {
+    for (let y = 0; y < pixelNum.y; y++) {
+      if (hintBoard[x][y] === disk.none) {
+        continue;
+      }
+
+      if (hintBoard[x][y] === disk.hint) {
+        fill(diskColor[color]);
+        textSize(int(pixelSize.x / 8));
+        textAlign(CENTER, CENTER);
+        text(
+          diskName[color],
+          x * pixelSize.x + pixelSize.x / 2,
+          y * pixelSize.y + pixelSize.y / 2
+        );
+      }
+      erase(100, 255);
+      ellipse(
+        x * pixelSize.x + pixelSize.x / 2,
+        y * pixelSize.y + pixelSize.y / 2,
+        diskSize.x,
+        diskSize.y
+      );
+      noErase();
+    }
+  }
+}
+
 function putDisk() {
   for (let x = 0; x < pixelNum.x; x++) {
     for (let y = 0; y < pixelNum.y; y++) {
-      if (hintBoard[x][y] === disk.hint) {
-        erase(100, 255);
-        ellipse(
-          x * pixelSize.x + pixelSize.x / 2,
-          y * pixelSize.y + pixelSize.y / 2,
-          diskSize.x,
-          diskSize.y
-        );
-        noErase();
-      }
-
       if (board[x][y] === disk.none) {
         continue;
       } else {
@@ -96,6 +197,27 @@ function putDisk() {
       }
     }
   }
+}
+
+function isAbleToPlaceAll(color) {
+  for (let x = 0; x < pixelNum.x; x++) {
+    for (let y = 0; y < pixelNum.y; y++) {
+      if (
+        board[x][y] === disk.none &&
+        isAbleToPlace(new Vec(x, y), color, false)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function isGameEnd() {
+  if (!isAbleToPlaceAll(disk.dark) && !isAbleToPlaceAll(disk.light)) {
+    return true;
+  }
+  return false;
 }
 
 function mouseReleased() {
@@ -119,12 +241,15 @@ function mouseReleased() {
 }
 
 function windowResized() {
-  size =
-    window.innerWidth < window.innerHeight
-      ? window.innerWidth
-      : window.innerHeight;
+  size = windowWidth < windowHeight ? windowWidth : windowHeight;
   boardSize = new Vec(size, size);
   pixelSize = new Vec(parseInt(size / pixelNum.x), parseInt(size / pixelNum.y));
+
+  messageBoardStart =
+    windowWidth < windowHeight
+      ? new Vec(0, pixelSize.y * pixelNum.y)
+      : new Vec(pixelSize.x * pixelNum.x, 0);
+
   diskSize = new Vec(pixelSize.x * ratioOfDisk.x, pixelSize.y * ratioOfDisk.y);
   resizeCanvas(windowWidth, windowHeight);
 }
@@ -231,6 +356,9 @@ function hintDisk(color) {
   for (let x = 0; x < pixelNum.x; x++) {
     for (let y = 0; y < pixelNum.y; y++) {
       let pos = new Vec(x, y);
+      if (board[pos.x][pos.y] !== disk.none) {
+        continue;
+      }
       if (isAbleToPlace(pos, color, false)) {
         hintBoard[pos.x][pos.y] = disk.hint;
       }
