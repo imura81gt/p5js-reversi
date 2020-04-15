@@ -1,6 +1,7 @@
 pages:
   script:
   - mkdir .public
+  - rm README.md
   - cp -r * .public
   - mv .public public
   artifacts:
